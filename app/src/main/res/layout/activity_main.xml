@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- Zone de jeu -->
-    <FrameLayout
-        android:id="@+id/game_area"
+    <!-- Zone de jeu avec grille -->
+    <androidx.gridlayout.widget.GridLayout
+        android:id="@+id/grid_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentTop="true"
+        app:columnCount="16"
+        app:rowCount="40"
+        android:padding="2dp"
         android:background="@android:color/darker_gray" />
 
     <!-- Affichage du score -->
