@@ -1,28 +1,31 @@
 package com.example.snake;
 
+import android.content.Context;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.DisplayMetrics;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.gridlayout.widget.GridLayout;
 
-import java.util.Random;
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-public class MainActivity extends AppCompatActivity {
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
 
     private int snakeRow = 0;
     private int snakeColumn = 0;
     private TextView snakeCell;
-    private TextView redSquare; // Référence au carré rouge
     private int rowCount = 20;
     private int columnCount = 20;
     private int cellSize;
 
-    private Handler handler = new Handler(); // Gestionnaire pour le délai
-    private Random random = new Random(); // Générateur de positions aléatoires
+    private long lastUpdate = 0;
+    private static final int UPDATE_THRESHOLD = 100; // Temps minimal entre deux mises à jour (ms)
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,42 +78,75 @@ public class MainActivity extends AppCompatActivity {
 
         gridLayout.addView(snakeCell);
 
-        // Créer un carré rouge (initialement invisible)
-        redSquare = new TextView(this);
-        redSquare.setBackgroundColor(Color.RED);
-        redSquare.setWidth(cellSize);
-        redSquare.setHeight(cellSize);
-        redSquare.setVisibility(TextView.INVISIBLE); // Caché au début
-
-        gridLayout.addView(redSquare);
-
-        // Lancer la boucle pour afficher les carrés rouges aléatoires
-        startRedSquareLoop();
+        // Initialisation du capteur
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     }
 
-    // Méthode pour gérer les carrés rouges
-    private void startRedSquareLoop() {
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                // Générer des positions aléatoires
-                int randomRow = random.nextInt(rowCount);
-                int randomColumn = random.nextInt(columnCount);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (accelerometer != null) {
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+        }
+    }
 
-                // Mettre à jour la position du carré rouge
-                GridLayout.LayoutParams redSquareParams = new GridLayout.LayoutParams();
-                redSquareParams.rowSpec = GridLayout.spec(randomRow);
-                redSquareParams.columnSpec = GridLayout.spec(randomColumn);
-                redSquareParams.setMargins(1, 1, 1, 1);
-                redSquare.setLayoutParams(redSquareParams);
-                redSquare.setVisibility(TextView.VISIBLE);
+    @Override
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(this);
+    }
 
-                // Cacher le carré après 2 secondes
-                handler.postDelayed(() -> redSquare.setVisibility(TextView.INVISIBLE), 2000);
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            long currentTime = System.currentTimeMillis();
+            if ((currentTime - lastUpdate) > UPDATE_THRESHOLD) {
+                lastUpdate = currentTime;
 
-                // Relancer la boucle pour afficher un nouveau carré rouge
-                handler.postDelayed(this, 2000); // Redémarrer après 2 secondes
+                float x = event.values[0]; // Déplacement horizontal
+                float y = event.values[1]; // Déplacement vertical
+
+                // Inversion des axes
+                // x devient vertical et y devient horizontal
+                if (Math.abs(y) > Math.abs(x)) {
+                    if (y < -1) {
+                        moveSnake(0, -1); // Gauche
+                    } else if (y > 1) {
+                        moveSnake(0, 1); // Droite
+                    }
+                } else {
+                    if (x < -1) {
+                        moveSnake(-1, 0); // Haut
+                    } else if (x > 1) {
+                        moveSnake(1, 0); // Bas
+                    }
+                }
             }
-        });
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Non utilisé
+    }
+
+    private void moveSnake(int deltaRow, int deltaColumn) {
+        // Mettre à jour la position
+        snakeRow += deltaRow;
+        snakeColumn += deltaColumn;
+
+        // Vérifier les limites de la grille
+        if (snakeRow < 0) snakeRow = 0;
+        if (snakeRow >= rowCount) snakeRow = rowCount - 1;
+        if (snakeColumn < 0) snakeColumn = 0;
+        if (snakeColumn >= columnCount) snakeColumn = columnCount - 1;
+
+        // Mettre à jour la position graphique
+        GridLayout.LayoutParams snakeParams = new GridLayout.LayoutParams();
+        snakeParams.rowSpec = GridLayout.spec(snakeRow);
+        snakeParams.columnSpec = GridLayout.spec(snakeColumn);
+        snakeParams.setMargins(1, 1, 1, 1);
+        snakeCell.setLayoutParams(snakeParams);
     }
 }
