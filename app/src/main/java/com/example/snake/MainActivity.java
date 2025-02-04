@@ -7,6 +7,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -52,6 +53,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private boolean isGameOver = false;
 
+    private Button pauseButton;
+    private boolean isPaused = false;    // Pour gérer l'état de pause
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,6 +74,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         initializeSensors();
         scoreText = findViewById(R.id.score_text);
         scoreText.setText("Score : " + score);
+
+        pauseButton = findViewById(R.id.pause_button);
+        pauseButton.setOnClickListener(v -> {
+            // Si le jeu est déjà terminé, on peut relancer une nouvelle partie
+            if (isGameOver) {
+                restartGame();
+                return;
+            }
+
+            // Sinon, on gère la pause
+            if (!isPaused) {
+                pauseGame();
+            } else {
+                resumeGame();
+            }
+        });
     }
 
     /**
@@ -119,6 +139,32 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         }
     }
+
+    private void restartGame() {
+        // 1) Réinitialiser la grille
+        GridLayout gridLayout = findViewById(R.id.grid_layout);
+        gridLayout.removeAllViews(); // Efface tout ce qui avait été ajouté
+
+        // 2) Remettre les paramètres du jeu à zéro
+        snakeBody.clear();
+        snakeViews.clear();
+        isGameOver = false;
+        isPaused = false;
+        score = 0;
+        scoreText.setText("Score : " + score);
+
+        // 3) Reconstruire la grille et replacer le Snake et la pomme
+        initializeGridLayout();
+        initializeSnake();
+        initializeApple();
+
+        // 4) Réenregistrer le capteur
+        registerSensorListener();
+
+        // 5) Mettre à jour le texte du bouton pour que ce soit un bouton Pause
+        pauseButton.setText("Pause");
+    }
+
 
     /**
      * Ajoute une cellule à la grille.
@@ -248,7 +294,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     *
+     * Génère une nouvelle position pour la pomme.
      * @param gridLayout
      */
     private void spawnApple(GridLayout gridLayout) {
@@ -297,6 +343,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         unregisterSensorListener();
     }
 
+    private void pauseGame() {
+        isPaused = true;
+        pauseButton.setText("Reprendre"); // Texte du bouton pendant la pause
+        // Arrêter d'écouter le capteur
+        unregisterSensorListener();
+    }
+
+    private void resumeGame() {
+        isPaused = false;
+        pauseButton.setText("Pause");
+        // Reprendre l’écoute du capteur
+        registerSensorListener();
+    }
+
+
     /**
      * Enregistre le listener du capteur d'accéléromètre.
      */
@@ -306,10 +367,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        if (isPaused || isGameOver) {
+            return; // On ne fait rien si c'est en pause ou que le jeu est fini
+        }
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             handleSensorChange(event);
         }
     }
+
 
     /**
      * Gère les changements de valeurs du capteur d'accéléromètre.
@@ -346,8 +411,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      * @param newDirection
      */
     private void moveSnake(int deltaRow, int deltaColumn, int newDirection) {
-        if (isGameOver) {
-            return; // Bloquer les déplacements si le jeu est terminé
+        if (isGameOver || isPaused) {
+            return; // Bloquer les déplacements si le jeu est terminé ou en pause
         }
 
         if ((currentDirection == UP && newDirection == DOWN) ||
@@ -376,11 +441,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void endGame() {
         isGameOver = true;
 
-        // Ajouter un fond gris en superposition
         GridLayout gridLayout = findViewById(R.id.grid_layout);
-        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0));  // Filtre gris semi-transparent
+        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0));
 
-        // Ajouter le texte "Vous avez perdu !" au centre de l'écran
         TextView gameOverText = new TextView(this);
         gameOverText.setText("Vous avez perdu !");
         gameOverText.setTextSize(30);
@@ -392,9 +455,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         params.rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         params.setMargins(10, 10, 10, 10);
-
         gameOverText.setLayoutParams(params);
+
         gridLayout.addView(gameOverText);
+
+        // Mettre le texte du bouton sur "Restart"
+        pauseButton.setText("Restart");
     }
 
     @Override
