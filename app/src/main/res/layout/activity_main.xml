@@ -1,19 +1,16 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/black">
+    android:layout_height="match_parent">
 
-    <!-- Zone de jeu avec grille -->
-    <androidx.gridlayout.widget.GridLayout
-        android:id="@+id/grid_layout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:padding="2dp"
-        android:background="@android:color/darker_gray" />
+    <!-- Notre vue perso pour dessiner Snake -->
+    <com.example.snake.SnakeView
+        android:id="@+id/snake_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true" />
 
-    <!-- Affichage du score -->
+    <!-- Score -->
     <TextView
         android:id="@+id/score_text"
         android:layout_width="wrap_content"
@@ -25,7 +22,7 @@
         android:textSize="18sp"
         android:textColor="@android:color/white" />
 
-    <!-- Bouton Pause / Restart -->
+    <!-- Bouton Pause -->
     <Button
         android:id="@+id/pause_button"
         android:layout_width="wrap_content"
