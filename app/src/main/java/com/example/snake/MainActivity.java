@@ -8,6 +8,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -41,7 +42,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private int appleRow = -1; // Position de la pomme
     private int appleColumn = -1;
-    private TextView appleCell;
+
+    private ImageView appleCell;
 
     private Random random;
 
@@ -285,13 +287,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void initializeApple() {
         GridLayout gridLayout = findViewById(R.id.grid_layout);
 
-        appleCell = new TextView(this);
-        appleCell.setBackgroundColor(Color.RED);
-        appleCell.setWidth(cellSize);
-        appleCell.setHeight(cellSize);
+        // On crée un ImageView à la place d'un TextView
+        appleCell = new ImageView(this);
+        appleCell.setImageResource(R.drawable.apple);
+        appleCell.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+        // On peut ajuster la taille via LayoutParams
+        GridLayout.LayoutParams appleParams = new GridLayout.LayoutParams();
+        appleParams.width = cellSize;
+        appleParams.height = cellSize;
+        appleCell.setLayoutParams(appleParams);
 
         spawnApple(gridLayout);
     }
+
 
     /**
      * Génère une nouvelle position pour la pomme.
@@ -302,17 +311,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         appleRow = random.nextInt(rowCount);
         appleColumn = random.nextInt(columnCount);
 
+        // Créer les LayoutParams pour la position dans la grille
         GridLayout.LayoutParams appleParams = new GridLayout.LayoutParams();
         appleParams.rowSpec = GridLayout.spec(appleRow);
         appleParams.columnSpec = GridLayout.spec(appleColumn);
+        appleParams.width = cellSize;
+        appleParams.height = cellSize;
 
+        // Retirer l'ancienne vue si elle existe déjà
+        gridLayout.removeView(appleCell);
 
-        appleParams.setMargins(1, 1, 1, 1);
+        // Appliquer les params à l’ImageView
         appleCell.setLayoutParams(appleParams);
 
-        gridLayout.removeView(appleCell);
+        // Ajouter au GridLayout
         gridLayout.addView(appleCell);
     }
+
 
     /**
      * Initialise le capteur d'accéléromètre.
@@ -441,9 +456,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void endGame() {
         isGameOver = true;
 
+        // Ajouter un fond gris en superposition
         GridLayout gridLayout = findViewById(R.id.grid_layout);
-        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0));
+        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0));  // Filtre gris semi-transparent
 
+        // Ajouter le texte "Vous avez perdu !" au centre de l'écran
         TextView gameOverText = new TextView(this);
         gameOverText.setText("Vous avez perdu !");
         gameOverText.setTextSize(30);
@@ -455,12 +472,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         params.rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         params.setMargins(10, 10, 10, 10);
+
         gameOverText.setLayoutParams(params);
-
         gridLayout.addView(gameOverText);
-
-        // Mettre le texte du bouton sur "Restart"
-        pauseButton.setText("Restart");
     }
 
     @Override
