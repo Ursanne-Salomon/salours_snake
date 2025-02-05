@@ -17,14 +17,15 @@ import java.util.Random;
  * Vue personnalisée qui dessine un Snake sur un Canvas :
  *  - Grille (cases carrées)
  *  - Pomme
- *  - Serpent (tête + corps)
+ *  - Serpent (tête + corps) avec bordure autour du corps
  *  - Score, collisions, etc.
+ *  - Peut faire demi-tour si taille du serpent == 1, sinon ignoré.
  */
 public class SnakeView extends View {
 
     // Tailles de la grille (nombre de lignes/colonnes)
-    private int rowCount = 20;
-    private int columnCount = 20;
+    private int rowCount = 11;
+    private int columnCount = 11;
 
     // Taille en pixels de chaque cellule (carré)
     private float cellSize;
@@ -50,7 +51,7 @@ public class SnakeView extends View {
     // Score
     private int score = 0;
 
-    // Direction : constants
+    // Directions : constants
     public static final int UP = 0;
     public static final int DOWN = 1;
     public static final int LEFT = 2;
@@ -62,8 +63,10 @@ public class SnakeView extends View {
     // Bitmap pour la pomme
     private Bitmap appleBitmap;
 
-    // Peinture pour le corps
-    private Paint paintBody;
+    // Peinture pour le corps (remplissage)
+    private Paint paintBodyFill;
+    // Peinture pour la bordure du corps
+    private Paint paintBodyStroke;
 
     // Indicateur de fin de jeu
     private boolean isGameOver = false;
@@ -95,11 +98,18 @@ public class SnakeView extends View {
         paintGrid.setColor(Color.GRAY);
         paintGrid.setStrokeWidth(2f);
 
-        // Peinture du corps
-        paintBody = new Paint();
-        paintBody.setColor(Color.rgb(160, 196, 50));
+        // Corps du serpent : remplissage
+        paintBodyFill = new Paint();
+        paintBodyFill.setColor(Color.rgb(160, 196, 50));  // Couleur du corps
+        paintBodyFill.setStyle(Paint.Style.FILL);
 
-        // Charger les bitmaps
+        // Corps du serpent : bordure
+        paintBodyStroke = new Paint();
+        paintBodyStroke.setColor(Color.BLACK);           // Couleur de la bordure
+        paintBodyStroke.setStyle(Paint.Style.STROKE);
+        paintBodyStroke.setStrokeWidth(2f);              // Épaisseur de la bordure
+
+        // Charger les bitmaps (tête + pomme)
         headUp = BitmapFactory.decodeResource(getResources(), R.drawable.snake_head_up);
         headDown = BitmapFactory.decodeResource(getResources(), R.drawable.snake_head_down);
         headLeft = BitmapFactory.decodeResource(getResources(), R.drawable.snake_head_left);
@@ -169,7 +179,7 @@ public class SnakeView extends View {
         // 4) Dessiner la pomme
         drawApple(canvas);
 
-        // 5) Dessiner le serpent : la tête + le corps
+        // 5) Dessiner le serpent : la tête + le corps (avec bordure pour le corps)
         drawSnake(canvas);
     }
 
@@ -190,7 +200,7 @@ public class SnakeView extends View {
     }
 
     /**
-     * Affiche un voile + message "Game Over"
+     * Affiche un voile + message "GAME OVER"
      */
     private void drawGameOver(Canvas canvas) {
         // Voile semi-transparent
@@ -250,13 +260,21 @@ public class SnakeView extends View {
                 canvas.drawBitmap(scaledHead, left, top, null);
 
             } else {
-                // CORPS : rectangle vert
+                // CORPS : on dessine d'abord le remplissage...
                 canvas.drawRect(
                         left,
                         top,
                         left + cellSize,
                         top + cellSize,
-                        paintBody
+                        paintBodyFill
+                );
+                // ...puis la bordure
+                canvas.drawRect(
+                        left,
+                        top,
+                        left + cellSize,
+                        top + cellSize,
+                        paintBodyStroke
                 );
             }
         }
@@ -266,10 +284,33 @@ public class SnakeView extends View {
      * Place la pomme à une position aléatoire
      */
     private void spawnApple() {
-        appleRow = random.nextInt(rowCount);
-        appleCol = random.nextInt(columnCount);
-        // Facultatif : vérifier qu'on ne la place pas sur le serpent
-        // ...
+        List<int[]> freeCells = new ArrayList<>();
+
+        // Parcourir toutes les cases
+        for (int r = 0; r < rowCount; r++) {
+            for (int c = 0; c < columnCount; c++) {
+                // Vérifier si la case (r, c) n'est pas dans le serpent
+                boolean isOccupied = false;
+                for (int[] seg : snakeCoordinates) {
+                    if (seg[0] == r && seg[1] == c) {
+                        isOccupied = true;
+                        break;
+                    }
+                }
+                if (!isOccupied) {
+                    freeCells.add(new int[]{r, c});
+                }
+            }
+        }
+
+        if (!freeCells.isEmpty()) {
+            // Choisir au hasard parmi les cases libres
+            int index = random.nextInt(freeCells.size());
+            appleRow = freeCells.get(index)[0];
+            appleCol = freeCells.get(index)[1];
+        } else {
+            // Le serpent occupe tout ? -> game over ou autre traitement
+        }
     }
 
     /**
@@ -304,15 +345,20 @@ public class SnakeView extends View {
     public void moveSnake(int deltaRow, int deltaCol, int newDirection) {
         if (isGameOver) return;
 
-        // Empêcher le demi-tour
-        if ((currentDirection == UP && newDirection == DOWN) ||
-                (currentDirection == DOWN && newDirection == UP) ||
-                (currentDirection == LEFT && newDirection == RIGHT) ||
-                (currentDirection == RIGHT && newDirection == LEFT)) {
-            // On ignore le changement
-        } else {
-            currentDirection = newDirection;
+        // Vérifier si on veut faire demi-tour
+        // => autoriser seulement si le serpent n'a qu'un segment
+        if (snakeCoordinates.size() > 1) {
+            if ((currentDirection == UP && newDirection == DOWN) ||
+                    (currentDirection == DOWN && newDirection == UP) ||
+                    (currentDirection == LEFT && newDirection == RIGHT) ||
+                    (currentDirection == RIGHT && newDirection == LEFT)) {
+                // On ignore la nouvelle direction, on continue l'ancienne
+                return;
+            }
         }
+
+        // Sinon, on met à jour la direction
+        currentDirection = newDirection;
 
         // Récupérer la position de la tête
         int[] head = snakeCoordinates.get(0);
@@ -355,7 +401,7 @@ public class SnakeView extends View {
             score++;
         }
 
-        // Demander redessin
+        // Redessiner
         invalidate();
     }
 
@@ -368,4 +414,3 @@ public class SnakeView extends View {
         snakeCoordinates.add(new int[]{lastSegment[0], lastSegment[1]});
     }
 }
-
