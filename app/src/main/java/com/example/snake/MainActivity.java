@@ -18,6 +18,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Jeu de Snake avec :
+ *  - Tête en ImageView, 4 images : snake_head_up.png, snake_head_right.png, snake_head_down.png, snake_head_left.png
+ *  - Corps en TextView verts
+ *  - Pomme en ImageView (apple.png)
+ *  - Contrôles par accéléromètre
+ *  - Score, pause, restart
+ */
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     // Directions possibles
@@ -26,81 +34,89 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final int LEFT = 2;
     private static final int RIGHT = 3;
 
+    // Accéléromètre
     private SensorManager sensorManager;
     private Sensor accelerometer;
 
-    private int snakeRow = 0;
+    // Tête du serpent
+    private int snakeRow = 0;     // Position (ligne)
+    private int snakeColumn = 0;  // Position (colonne)
+    private int currentDirection = RIGHT; // Direction initiale
+    private ImageView snakeHeadView;      // L'image de la tête
 
+    // Corps du serpent (positions + TextViews)
+    private List<int[]> snakeCoordinates; // [0] => tête, [1..] => corps
+    private List<TextView> snakeBodyViews; // Les vues (TextView) de chaque segment du corps
 
-    private int snakeColumn = 0;
-    private int currentDirection = RIGHT; // Direction initiale du Snake
-    private List<int[]> snakeBody; // Liste des segments du corps du snake
-    private List<TextView> snakeViews; // Liste des TextViews correspondant au corps
+    // Grille
     private int rowCount = 20;
     private int columnCount = 20;
     private int cellSize;
 
-    private int appleRow = -1; // Position de la pomme
+    // Pomme
+    private int appleRow = -1;
     private int appleColumn = -1;
-
     private ImageView appleCell;
 
-    private Random random;
-
-    private long lastUpdate = 0;
-    private static final int UPDATE_THRESHOLD = 100; // Temps minimal entre deux mises à jour (ms)
-
+    // Score
     private int score = 0;
     private TextView scoreText;
 
+    // État du jeu
     private boolean isGameOver = false;
+    private boolean isPaused = false;
 
+    // Button Pause/Restart
     private Button pauseButton;
-    private boolean isPaused = false;    // Pour gérer l'état de pause
+
+    // Pour limiter la fréquence de mise à jour par l'accéléromètre
+    private long lastUpdate = 0;
+    private static final int UPDATE_THRESHOLD = 100; // en ms
+
+    // Générateur aléatoire
+    private Random random;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); // Le layout XML
 
         random = new Random();
 
-        snakeBody = new ArrayList<>();
-        snakeViews = new ArrayList<>();
-
+        // 1) Calculer combien de cellules on met dans la grille
         calculateGridSize();
+
+        // 2) Initialiser la grille
         initializeGridLayout();
+
+        // 3) Initialiser le serpent (tête + corps)
         initializeSnake();
+
+        // 4) Initialiser la pomme
         initializeApple();
+
+        // 5) Initialiser l'accéléromètre
         initializeSensors();
+
+        // 6) Gérer l'affichage du score
         scoreText = findViewById(R.id.score_text);
         scoreText.setText("Score : " + score);
 
+        // 7) Bouton Pause / Restart
         pauseButton = findViewById(R.id.pause_button);
         pauseButton.setOnClickListener(v -> {
-            // Si le jeu est déjà terminé, on peut relancer une nouvelle partie
+            // Si le jeu est déjà terminé, on relance
             if (isGameOver) {
                 restartGame();
                 return;
             }
-
-            // Sinon, on gère la pause
+            // Sinon, on alterne pause / reprise
             if (!isPaused) {
                 pauseGame();
             } else {
                 resumeGame();
             }
         });
-    }
-
-    /**
-     * Met à jour le score du joueur.
-     *
-     */
-    private void updateScore() {
-        score++; // Incrémentation du score uniquement ici
-        scoreText.setText("Score : " + score);
     }
 
     /**
@@ -121,20 +137,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     * Initialise la grille de jeu.
+     * Crée/paramètre le GridLayout et y ajoute des cellules grises.
      */
     private void initializeGridLayout() {
         GridLayout gridLayout = findViewById(R.id.grid_layout);
         gridLayout.setRowCount(rowCount);
         gridLayout.setColumnCount(columnCount);
 
+        // Calcul de la taille d'une cellule
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         int screenHeight = getResources().getDisplayMetrics().heightPixels;
         cellSize = Math.min(screenWidth / columnCount, screenHeight / rowCount);
 
+        // Fixer la taille totale du GridLayout pour éviter qu'il déborde
         gridLayout.getLayoutParams().width = cellSize * columnCount;
         gridLayout.getLayoutParams().height = cellSize * rowCount;
 
+        // Ajouter des TextView "gris" pour chaque case (simple décor)
         for (int i = 0; i < rowCount; i++) {
             for (int j = 0; j < columnCount; j++) {
                 addGridCell(gridLayout, i, j);
@@ -142,38 +161,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    private void restartGame() {
-        // 1) Réinitialiser la grille
-        GridLayout gridLayout = findViewById(R.id.grid_layout);
-        gridLayout.removeAllViews(); // Efface tout ce qui avait été ajouté
-
-        // 2) Remettre les paramètres du jeu à zéro
-        snakeBody.clear();
-        snakeViews.clear();
-        isGameOver = false;
-        isPaused = false;
-        score = 0;
-        scoreText.setText("Score : " + score);
-
-        // 3) Reconstruire la grille et replacer le Snake et la pomme
-        initializeGridLayout();
-        initializeSnake();
-        initializeApple();
-
-        // 4) Réenregistrer le capteur
-        registerSensorListener();
-
-        // 5) Mettre à jour le texte du bouton pour que ce soit un bouton Pause
-        pauseButton.setText("Pause");
-    }
-
-
-    /**
-     * Ajoute une cellule à la grille.
-     * @param gridLayout
-     * @param row
-     * @param column
-     */
     private void addGridCell(GridLayout gridLayout, int row, int column) {
         TextView cell = new TextView(this);
         cell.setBackgroundColor(Color.LTGRAY);
@@ -190,82 +177,132 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     * Initialise le snake en positionnant le premier segment.
+     * Initialise le serpent : on crée la liste de coordonnées et la tête (ImageView).
      */
     private void initializeSnake() {
         GridLayout gridLayout = findViewById(R.id.grid_layout);
 
-        // Ajouter le premier segment du snake (tête)
+        snakeCoordinates = new ArrayList<>();
+        snakeBodyViews = new ArrayList<>();
+
+        // Position initiale : milieu de la grille
         snakeRow = rowCount / 2;
-        
         snakeColumn = columnCount / 2;
-        snakeBody.add(new int[]{snakeRow, snakeColumn});
 
-        TextView snakeHead = new TextView(this);
-        snakeHead.setBackgroundColor(Color.GREEN);
-        snakeHead.setWidth(cellSize);
-        snakeHead.setHeight(cellSize);
+        // Ajout de la coordonnée de la tête
+        snakeCoordinates.add(new int[]{snakeRow, snakeColumn});
 
-        GridLayout.LayoutParams snakeParams = new GridLayout.LayoutParams();
-        snakeParams.rowSpec = GridLayout.spec(snakeRow);
-        snakeParams.columnSpec = GridLayout.spec(snakeColumn);
-        snakeParams.setMargins(1, 1, 1, 1);
-        snakeHead.setLayoutParams(snakeParams);
+        // Création de la tête (orientée vers le bas au démarrage, par exemple)
+        snakeHeadView = new ImageView(this);
+        snakeHeadView.setImageResource(R.drawable.snake_head_down);
+        snakeHeadView.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
-        snakeViews.add(snakeHead);
-        gridLayout.addView(snakeHead);
+        GridLayout.LayoutParams headParams = new GridLayout.LayoutParams();
+        headParams.rowSpec = GridLayout.spec(snakeRow);
+        headParams.columnSpec = GridLayout.spec(snakeColumn);
+        headParams.width = cellSize;
+        headParams.height = cellSize;
+        headParams.setMargins(1, 1, 1, 1);
+        snakeHeadView.setLayoutParams(headParams);
+
+        gridLayout.addView(snakeHeadView);
     }
 
     /**
-     * Met à jour la position du snake sur la grille.
-     * @param gridLayout
+     * Méthode utilitaire : ajoute un segment de corps à la fin du serpent.
+     */
+    private void addBodySegment(GridLayout gridLayout, int row, int col) {
+        snakeCoordinates.add(new int[]{row, col});
+
+        TextView bodyPart = new TextView(this);
+        bodyPart.setBackgroundColor(Color.GREEN);
+
+        GridLayout.LayoutParams bodyParams = new GridLayout.LayoutParams();
+        bodyParams.rowSpec = GridLayout.spec(row);
+        bodyParams.columnSpec = GridLayout.spec(col);
+        bodyParams.width = cellSize;
+        bodyParams.height = cellSize;
+        bodyParams.setMargins(1, 1, 1, 1);
+        bodyPart.setLayoutParams(bodyParams);
+
+        snakeBodyViews.add(bodyPart);
+        gridLayout.addView(bodyPart);
+    }
+
+    /**
+     * Déplace la liste des coordonnées : chaque segment prend la place du précédent,
+     * et la tête prend snakeRow/snakeColumn.
+     */
+    private void moveSnakeCoordinates() {
+        for (int i = snakeCoordinates.size() - 1; i > 0; i--) {
+            snakeCoordinates.set(i, snakeCoordinates.get(i - 1));
+        }
+        // Mettre à jour la tête
+        snakeCoordinates.set(0, new int[]{snakeRow, snakeColumn});
+    }
+
+    /**
+     * Met à jour l'affichage du serpent (tête + corps) dans le GridLayout.
+     * @param gridLayout le layout à utiliser
      */
     private void updateSnakePosition(GridLayout gridLayout) {
-        if (isGameOver) {
-            return; // Arrêter le jeu si déjà perdu
-        }
+        if (isGameOver) return;
 
-        // Supprimer l'affichage actuel du snake
-        for (TextView segment : snakeViews) {
-            gridLayout.removeView(segment);
-        }
+        // Retirer l'ancienne tête
+        gridLayout.removeView(snakeHeadView);
 
-        // Vérifier si la tête touche le corps
-        for (int i = 1; i < snakeBody.size(); i++) {
-            if (snakeRow == snakeBody.get(i)[0] && snakeColumn == snakeBody.get(i)[1]) {
+        // Retirer l'ancien corps
+        for (TextView bodyPartView : snakeBodyViews) {
+            gridLayout.removeView(bodyPartView);
+        }
+        snakeBodyViews.clear();
+
+        // Déplacer les coordonnées
+        moveSnakeCoordinates();
+
+        // Vérifier collision avec le corps
+        int headRow = snakeCoordinates.get(0)[0];
+        int headCol = snakeCoordinates.get(0)[1];
+        for (int i = 1; i < snakeCoordinates.size(); i++) {
+            if (snakeCoordinates.get(i)[0] == headRow
+                    && snakeCoordinates.get(i)[1] == headCol) {
                 endGame();
                 return;
             }
         }
 
-        // Mettre à jour les positions du corps
-        for (int i = snakeBody.size() - 1; i > 0; i--) {
-            snakeBody.set(i, snakeBody.get(i - 1));
+        // Réafficher la tête
+        GridLayout.LayoutParams headParams = new GridLayout.LayoutParams();
+        headParams.rowSpec = GridLayout.spec(headRow);
+        headParams.columnSpec = GridLayout.spec(headCol);
+        headParams.width = cellSize;
+        headParams.height = cellSize;
+        headParams.setMargins(1, 1, 1, 1);
+        snakeHeadView.setLayoutParams(headParams);
+        gridLayout.addView(snakeHeadView);
+
+        // Réafficher le corps
+        for (int i = 1; i < snakeCoordinates.size(); i++) {
+            int row = snakeCoordinates.get(i)[0];
+            int col = snakeCoordinates.get(i)[1];
+
+            TextView bodyPart = new TextView(this);
+            bodyPart.setBackgroundColor(Color.GREEN);
+
+            GridLayout.LayoutParams bodyParams = new GridLayout.LayoutParams();
+            bodyParams.rowSpec = GridLayout.spec(row);
+            bodyParams.columnSpec = GridLayout.spec(col);
+            bodyParams.width = cellSize;
+            bodyParams.height = cellSize;
+            bodyParams.setMargins(1, 1, 1, 1);
+            bodyPart.setLayoutParams(bodyParams);
+
+            snakeBodyViews.add(bodyPart);
+            gridLayout.addView(bodyPart);
         }
 
-        // Déplacer la tête
-        snakeBody.set(0, new int[]{snakeRow, snakeColumn});
-
-        // Réafficher chaque segment
-        snakeViews.clear();
-        for (int[] segment : snakeBody) {
-            TextView snakeSegment = new TextView(this);
-            snakeSegment.setBackgroundColor(Color.GREEN);
-            snakeSegment.setWidth(cellSize);
-            snakeSegment.setHeight(cellSize);
-
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.rowSpec = GridLayout.spec(segment[0]);
-            params.columnSpec = GridLayout.spec(segment[1]);
-            params.setMargins(1, 1, 1, 1);
-            snakeSegment.setLayoutParams(params);
-
-            snakeViews.add(snakeSegment);
-            gridLayout.addView(snakeSegment);
-        }
-
-        // Vérifier si le snake a mangé une pomme
-        if (snakeRow == appleRow && snakeColumn == appleColumn) {
+        // Vérifier si on mange la pomme
+        if (headRow == appleRow && headCol == appleColumn) {
             growSnake();
             spawnApple(gridLayout);
             updateScore();
@@ -273,64 +310,65 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     * Augmente la taille du snake en ajoutant un nouveau segment.
+     * Quand le serpent mange la pomme, on ajoute un segment à la fin.
      */
     private void growSnake() {
-        // Ajouter un nouveau segment à la position du dernier segment
-        int[] lastSegment = snakeBody.get(snakeBody.size() - 1);
-        snakeBody.add(new int[]{lastSegment[0], lastSegment[1]});
+        int[] lastSegment = snakeCoordinates.get(snakeCoordinates.size() - 1);
+        addBodySegment((GridLayout) findViewById(R.id.grid_layout),
+                lastSegment[0],
+                lastSegment[1]);
     }
 
     /**
-     * Initialise la position de la pomme.
+     * Met à jour le score.
+     */
+    private void updateScore() {
+        score++;
+        scoreText.setText("Score : " + score);
+    }
+
+    /**
+     * Initialise la pomme avec l'image apple.png et la place quelque part.
      */
     private void initializeApple() {
         GridLayout gridLayout = findViewById(R.id.grid_layout);
 
-        // On crée un ImageView à la place d'un TextView
         appleCell = new ImageView(this);
         appleCell.setImageResource(R.drawable.apple);
         appleCell.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
-        // On peut ajuster la taille via LayoutParams
         GridLayout.LayoutParams appleParams = new GridLayout.LayoutParams();
         appleParams.width = cellSize;
         appleParams.height = cellSize;
         appleCell.setLayoutParams(appleParams);
 
+        // Placement initial
         spawnApple(gridLayout);
     }
 
-
     /**
-     * Génère une nouvelle position pour la pomme.
-     * @param gridLayout
+     * Place la pomme de façon aléatoire dans la grille.
      */
     private void spawnApple(GridLayout gridLayout) {
-        // Générer une nouvelle position pour la pomme
         appleRow = random.nextInt(rowCount);
         appleColumn = random.nextInt(columnCount);
 
-        // Créer les LayoutParams pour la position dans la grille
+        // Retirer l'ancienne pomme
+        gridLayout.removeView(appleCell);
+
         GridLayout.LayoutParams appleParams = new GridLayout.LayoutParams();
         appleParams.rowSpec = GridLayout.spec(appleRow);
         appleParams.columnSpec = GridLayout.spec(appleColumn);
         appleParams.width = cellSize;
         appleParams.height = cellSize;
-
-        // Retirer l'ancienne vue si elle existe déjà
-        gridLayout.removeView(appleCell);
-
-        // Appliquer les params à l’ImageView
         appleCell.setLayoutParams(appleParams);
 
-        // Ajouter au GridLayout
+        // Ajouter la pomme
         gridLayout.addView(appleCell);
     }
 
-
     /**
-     * Initialise le capteur d'accéléromètre.
+     * Initialisation de l'accéléromètre.
      */
     private void initializeSensors() {
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -343,9 +381,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         registerSensorListener();
     }
 
-    /**
-     * Enregistre le listener du capteur d'accéléromètre.
-     */
     private void registerSensorListener() {
         if (accelerometer != null) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
@@ -358,78 +393,59 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         unregisterSensorListener();
     }
 
-    private void pauseGame() {
-        isPaused = true;
-        pauseButton.setText("Reprendre"); // Texte du bouton pendant la pause
-        // Arrêter d'écouter le capteur
-        unregisterSensorListener();
-    }
-
-    private void resumeGame() {
-        isPaused = false;
-        pauseButton.setText("Pause");
-        // Reprendre l’écoute du capteur
-        registerSensorListener();
-    }
-
-
-    /**
-     * Enregistre le listener du capteur d'accéléromètre.
-     */
     private void unregisterSensorListener() {
         sensorManager.unregisterListener(this);
     }
 
+    /**
+     * Gestion des changements de l'accéléromètre (inclinaison).
+     */
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (isPaused || isGameOver) {
-            return; // On ne fait rien si c'est en pause ou que le jeu est fini
+            return;
         }
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             handleSensorChange(event);
         }
     }
 
-
-    /**
-     * Gère les changements de valeurs du capteur d'accéléromètre.
-     * @param event
-     */
     private void handleSensorChange(SensorEvent event) {
         long currentTime = System.currentTimeMillis();
         if ((currentTime - lastUpdate) > UPDATE_THRESHOLD) {
             lastUpdate = currentTime;
 
-            float x = event.values[0];
-            float y = event.values[1];
+            float x = event.values[0]; // Inclinaison horizontale
+            float y = event.values[1]; // Inclinaison verticale
 
+            // Déterminer quelle inclinaison est la plus forte
             if (Math.abs(y) > Math.abs(x)) {
+                // Axe vertical
                 if (y < -1) {
-                    moveSnake(0, -1, UP);
+                    moveSnake(0, -1, UP);    // Haut
                 } else if (y > 1) {
-                    moveSnake(0, 1, DOWN);
+                    moveSnake(0, 1, DOWN);  // Bas
                 }
             } else {
+                // Axe horizontal
                 if (x < -1) {
-                    moveSnake(-1, 0, LEFT);
+                    moveSnake(-1, 0, LEFT);  // Gauche
                 } else if (x > 1) {
-                    moveSnake(1, 0, RIGHT);
+                    moveSnake(1, 0, RIGHT);  // Droite
                 }
             }
         }
     }
 
     /**
-     * Déplace le snake dans la direction spécifiée.
-     * @param deltaRow
-     * @param deltaColumn
-     * @param newDirection
+     * Déplace le serpent (deltaRow, deltaColumn) et change l'image de la tête selon la direction.
      */
     private void moveSnake(int deltaRow, int deltaColumn, int newDirection) {
         if (isGameOver || isPaused) {
-            return; // Bloquer les déplacements si le jeu est terminé ou en pause
+            return;
         }
 
+        // Empêcher de faire demi-tour
         if ((currentDirection == UP && newDirection == DOWN) ||
                 (currentDirection == DOWN && newDirection == UP) ||
                 (currentDirection == LEFT && newDirection == RIGHT) ||
@@ -439,28 +455,89 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         currentDirection = newDirection;
 
+        // ---- CHANGER L'IMAGE SELON LA NOUVELLE DIRECTION ----
+        switch (currentDirection) {
+            case UP:
+                snakeHeadView.setImageResource(R.drawable.snake_head_left);
+                break;
+            case RIGHT:
+                snakeHeadView.setImageResource(R.drawable.snake_head_down);
+                break;
+            case DOWN:
+                snakeHeadView.setImageResource(R.drawable.snake_head_right);
+                break;
+            case LEFT:
+                snakeHeadView.setImageResource(R.drawable.snake_head_up);
+                break;
+        }
+
+        // Mettre à jour la position
         snakeRow += deltaRow;
         snakeColumn += deltaColumn;
 
+        // Limiter si vous ne voulez pas que le serpent traverse la grille
         if (snakeRow < 0) snakeRow = 0;
         if (snakeRow >= rowCount) snakeRow = rowCount - 1;
         if (snakeColumn < 0) snakeColumn = 0;
         if (snakeColumn >= columnCount) snakeColumn = columnCount - 1;
 
+        // Mettre à jour l'affichage
         updateSnakePosition((GridLayout) findViewById(R.id.grid_layout));
     }
 
     /**
-     * Termine le jeu et affiche un message de fin.
+     * Met le jeu en pause.
+     */
+    private void pauseGame() {
+        isPaused = true;
+        pauseButton.setText("Reprendre");
+        unregisterSensorListener();
+    }
+
+    /**
+     * Reprend la partie.
+     */
+    private void resumeGame() {
+        isPaused = false;
+        pauseButton.setText("Pause");
+        registerSensorListener();
+    }
+
+    /**
+     * Redémarre la partie depuis zéro.
+     */
+    private void restartGame() {
+        GridLayout gridLayout = findViewById(R.id.grid_layout);
+        gridLayout.removeAllViews(); // Effacer toutes les views (cellules, tête, corps, pomme...)
+
+        isGameOver = false;
+        isPaused = false;
+        score = 0;
+        scoreText.setText("Score : " + score);
+        pauseButton.setText("Pause");
+
+        // Reconstruire la grille
+        initializeGridLayout();
+
+        // Recréer le serpent
+        initializeSnake();
+
+        // Recréer la pomme
+        initializeApple();
+
+        // Relancer l'accéléromètre
+        registerSensorListener();
+    }
+
+    /**
+     * Quand on perd, on assombrit la grille et on affiche un message, puis on change le bouton en "Restart".
      */
     private void endGame() {
         isGameOver = true;
 
-        // Ajouter un fond gris en superposition
         GridLayout gridLayout = findViewById(R.id.grid_layout);
-        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0));  // Filtre gris semi-transparent
+        gridLayout.setBackgroundColor(Color.argb(150, 0, 0, 0)); // Filtre gris
 
-        // Ajouter le texte "Vous avez perdu !" au centre de l'écran
         TextView gameOverText = new TextView(this);
         gameOverText.setText("Vous avez perdu !");
         gameOverText.setTextSize(30);
@@ -475,10 +552,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         gameOverText.setLayoutParams(params);
         gridLayout.addView(gameOverText);
+
+        pauseButton.setText("Restart");
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Pas nécessaire
+        // Non utilisé
     }
 }
