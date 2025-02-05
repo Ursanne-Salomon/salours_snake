@@ -3,14 +3,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Notre vue perso pour dessiner Snake -->
+    <!--
+         Vue personnalisée où le jeu Snake est dessiné en Canvas (classe SnakeView).
+         Elle occupe tout l'écran (match_parent),
+         et est centrée si besoin (layout_centerInParent="true").
+    -->
     <com.example.snake.SnakeView
         android:id="@+id/snake_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_centerInParent="true" />
 
-    <!-- Score -->
+    <!--
+         TextView pour afficher le score du joueur.
+         Placé en haut à gauche (alignParentStart / alignParentTop).
+    -->
     <TextView
         android:id="@+id/score_text"
         android:layout_width="wrap_content"
@@ -22,7 +29,11 @@
         android:textSize="18sp"
         android:textColor="@android:color/white" />
 
-    <!-- Bouton Pause -->
+    <!--
+         Bouton de pause / reprise / restart.
+         Placé en haut à droite (alignParentEnd / alignParentTop).
+         Utilise un backgroundTint bleu foncé et du texte blanc.
+    -->
     <Button
         android:id="@+id/pause_button"
         android:layout_width="wrap_content"
